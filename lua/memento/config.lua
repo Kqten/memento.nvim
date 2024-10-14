@@ -1,10 +1,10 @@
 local M = {}
 
 M.default = {
-  width = 150,                                                  -- Default width set to 150
-  height = 100,                                                 -- Default height set to 100
-  side = "left",                                                -- Configurable side
-  filepath = vim.fn.expand("~") .. "/memento.nvim/global.md",   -- Updated default file path
+  width = 150,                                                -- Default width set to 150
+  height = 100,                                               -- Default height set to 100
+  side = "left",                                              -- Configurable side
+  filepath = vim.fn.expand("~") .. "/memento.nvim/global.md", -- Updated default file path
   winopts = {
     relativenumber = false,
     number = false,
@@ -21,10 +21,11 @@ M.default = {
   },
   bufopts = {
     { name = "swapfile",   val = false },
-    { name = "buftype",    val = "acwrite" }, -- Regular file behavior
+    { name = "buftype",    val = "acwrite" },
     { name = "modifiable", val = true },
     { name = "filetype",   val = "Memento" },
-    { name = "bufhidden",  val = "hide" }, -- Allows buffer to be hidden without saving
+    { name = "bufhidden",  val = "hide" },
+    { name = "buflisted",  val = false }, -- Prevent buffer from being listed
   },
 }
 

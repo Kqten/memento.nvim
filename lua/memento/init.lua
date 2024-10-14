@@ -67,25 +67,25 @@ function Memento.load_content(buf)
 end
 
 -- Save the content of the Memento buffer to the specified file.
-function Memento.save_to_file()
-  local buf = Memento.get_or_create_buffer()
-  if not a.nvim_buf_is_valid(buf) then
-    print("Buffer is no longer valid.")
-    return
-  end
-  local filepath = Memento.View.filepath
-  local file = io.open(filepath, "w")
-  if file then
-    local lines = a.nvim_buf_get_lines(buf, 0, -1, false)
-    for _, line in ipairs(lines) do
-      file:write(line .. "\n")
+function Memento.save_to_file(buf)
+    buf = buf or Memento.get_or_create_buffer()
+    if not a.nvim_buf_is_valid(buf) then
+        print("Buffer is no longer valid.")
+        return
     end
-    file:close()
-    -- Mark the buffer as not modified
-    a.nvim_buf_set_option(buf, 'modified', false)
-  else
-    print("Failed to save to " .. filepath)
-  end
+    local filepath = Memento.View.filepath
+    local file = io.open(filepath, "w")
+    if file then
+        local lines = a.nvim_buf_get_lines(buf, 0, -1, false)
+        for _, line in ipairs(lines) do
+            file:write(line .. "\n")
+        end
+        file:close()
+        -- Mark the buffer as not modified
+        a.nvim_buf_set_option(buf, 'modified', false)
+    else
+        print("Failed to save to " .. filepath)
+    end
 end
 
 -- Create the Memento window.
@@ -158,10 +158,20 @@ end
 
 -- Save the Memento buffer when Neovim exits
 function Memento.save_on_exit()
-    local buf = Memento.get_or_create_buffer()
-    if a.nvim_buf_is_valid(buf) and a.nvim_buf_get_option(buf, 'modified') then
-        Memento.save_to_file()
+    local buf = Memento.get_existing_buffer()
+    if buf and a.nvim_buf_is_valid(buf) and a.nvim_buf_get_option(buf, 'modified') then
+        Memento.save_to_file(buf)
     end
+end
+
+-- Get the Memento buffer if it exists
+function Memento.get_existing_buffer()
+    for _, buf in ipairs(a.nvim_list_bufs()) do
+        if a.nvim_buf_is_valid(buf) and vim.bo[buf].filetype == "Memento" then
+            return buf -- Return the existing buffer if it exists
+        end
+    end
+    return nil
 end
 
 -- Update configuration values.
@@ -193,8 +203,8 @@ function Memento.setup(user_options)
   end
   vim.api.nvim_create_user_command('ToggleMemento', Memento.toggle, {})
 
-  -- Set up an autocommand to save the Memento buffer when Neovim exits
-  vim.cmd('autocmd VimLeavePre * lua require("memento").save_on_exit()')
+  -- Set up an autocommand to save the Memento buffer before quitting
+  vim.cmd('autocmd QuitPre * lua require("memento").save_on_exit()')
 end
 
 return Memento
