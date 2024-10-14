@@ -26,7 +26,7 @@ function Memento.get_or_create_buffer()
 
   -- Create a new buffer if none exists
   local buf = a.nvim_create_buf(false, true)      -- Create a non-listed buffer
-  a.nvim_buf_set_name(buf, Memento.View.filepath) -- Set the buffer's name to the desired file path
+  a.nvim_buf_set_name(buf, "Memento") -- Set the buffer's name to the desired file path
 
   -- Set buffer-local options
   for _, opt in ipairs(Memento.View.bufopts) do
@@ -68,27 +68,26 @@ end
 
 -- Save the content of the Memento buffer to the specified file.
 function Memento.save_to_file()
-  local buf = Memento.get_or_create_buffer() -- Get the buffer
-
-  if not a.nvim_buf_is_valid(buf) then
-    print("Buffer is no longer valid")
-    return
-  end
-
-  local filepath = Memento.View.filepath
-  local file = io.open(filepath, "w")                     -- Open the file for writing
-  if file then
-    local lines = a.nvim_buf_get_lines(buf, 0, -1, false) -- Get lines from the buffer
-    for _, line in ipairs(lines) do
-      file:write(line .. "\n")                            -- Write each line to the file
+    local buf = Memento.get_or_create_buffer()
+    if not a.nvim_buf_is_valid(buf) then
+        print("Buffer is no longer valid.")
+        return
     end
-    file:close()
-    -- Mark the buffer as not modified
-    a.nvim_buf_set_option(buf, 'modified', false)
-  else
-    print("Failed to save to " .. filepath)
-  end
+    local filepath = Memento.View.filepath
+    local file = io.open(filepath, "w")
+    if file then
+        local lines = a.nvim_buf_get_lines(buf, 0, -1, false)
+        for _, line in ipairs(lines) do
+            file:write(line .. "\n")
+        end
+        file:close()
+        -- Mark the buffer as not modified
+        a.nvim_buf_set_option(buf, 'modified', false)
+    else
+        print("Failed to save to " .. filepath)
+    end
 end
+
 
 -- Create the Memento window.
 function Memento.create_window()
@@ -128,14 +127,14 @@ function Memento.create_window()
   end
 
   -- Set up an autocommand to save to the global.md file on write
-  vim.cmd('autocmd BufWritePre,BufWinLeave <buffer> lua require("memento").save_to_file()')
+  vim.cmd('autocmd BufWriteCmd,BufWinLeave <buffer> lua require("memento").save_to_file()')
 end
 
 -- Close the Memento window.
 function Memento.close()
   local win_id = Memento.is_win_open()
   if win_id then
-    a.nvim_win_close(win_id, true)     -- Close the existing window
+    a.nvim_win_close(win_id, true) -- Close the existing window
     -- Do not delete the buffer here
   end
 end

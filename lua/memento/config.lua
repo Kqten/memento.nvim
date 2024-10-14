@@ -21,7 +21,7 @@ M.default = {
   },
   bufopts = {
     { name = "swapfile",   val = false },
-    { name = "buftype",    val = "" }, -- Regular file behavior
+    { name = "buftype",    val = "acwrite" }, -- Regular file behavior
     { name = "modifiable", val = true },
     { name = "filetype",   val = "Memento" },
     { name = "bufhidden",  val = "hide" }, -- Allows buffer to be hidden without saving
