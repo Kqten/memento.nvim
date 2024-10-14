@@ -281,6 +281,26 @@ function Memento.focus()
   end
 end
 
+-- Function to check if Neo-tree opened the buffer
+local function is_neotree_buffer(buf)
+  local buf_ft = vim.api.nvim_buf_get_option(buf, 'filetype')
+  return buf_ft == 'neo-tree'
+end
+
+-- Autocommand to listen for buffers opened by Neo-tree
+vim.api.nvim_create_autocmd('BufWinEnter', {
+  callback = function(args)
+    local buf = args.buf
+    if is_neotree_buffer(buf) then
+      -- Neo-tree has opened a buffer
+      -- Close the Memento window if it's open
+      if Memento.is_win_open() then
+        Memento.close()
+      end
+    end
+  end,
+})
+
 -- Display the status of the Memento buffer.
 function Memento.status()
   local buf = Memento.get_existing_buffer()
