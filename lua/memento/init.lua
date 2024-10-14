@@ -1,9 +1,14 @@
 local a = vim.api
-local MementoConfig = require('memento.config') -- Require the config file
+local MementoConfig = require('memento.config')
 
 local Memento = {}
 
-Memento.View = MementoConfig.default -- Use the default config
+Memento.View = MementoConfig.default
+
+-- Define the default highlight group for Memento background
+vim.cmd([[
+  highlight default MementoBackground guibg=#1e1e1e
+]])
 
 -- Check if the Memento window is open.
 function Memento.is_win_open()
@@ -16,17 +21,26 @@ function Memento.is_win_open()
   return nil -- Return nil if not found
 end
 
--- Get or create a new buffer for the Memento window.
-function Memento.get_or_create_buffer()
+-- Get the Memento buffer if it exists
+function Memento.get_existing_buffer()
   for _, buf in ipairs(a.nvim_list_bufs()) do
     if a.nvim_buf_is_valid(buf) and vim.bo[buf].filetype == "Memento" then
       return buf -- Return the existing buffer if it exists
     end
   end
+  return nil
+end
+
+-- Get or create a new buffer for the Memento window.
+function Memento.get_or_create_buffer()
+  local buf = Memento.get_existing_buffer()
+  if buf then
+    return buf
+  end
 
   -- Create a new buffer if none exists
-  local buf = a.nvim_create_buf(false, true) -- Create a non-listed buffer
-  a.nvim_buf_set_name(buf, "Memento")        -- Set the buffer's name to the desired file path
+  buf = a.nvim_create_buf(false, true) -- Create a non-listed buffer
+  a.nvim_buf_set_name(buf, "Memento")  -- Set the buffer's name
 
   -- Set buffer-local options
   for _, opt in ipairs(Memento.View.bufopts) do
@@ -75,7 +89,7 @@ function Memento.save_to_file(buf)
   end
   local filepath = Memento.View.filepath
   local lines = a.nvim_buf_get_lines(buf, 0, -1, false)
-  
+
   -- Write to the file
   local file = io.open(filepath, "w")
   if file then
@@ -85,16 +99,24 @@ function Memento.save_to_file(buf)
     file:close()
     -- Mark the buffer as not modified
     a.nvim_buf_set_option(buf, 'modified', false)
-    
+
     -- Get the number of lines and file size
     local num_lines = #lines
     local stat = vim.loop.fs_stat(filepath)
     local size = stat and stat.size or 0
-    
+
     -- Display a message similar to Neovim's write message
     print(string.format('"%s" %dL, %dB written', filepath, num_lines, size))
   else
     print("Failed to save to " .. filepath)
+  end
+end
+
+-- Save the Memento buffer when Neovim exits
+function Memento.save_on_exit()
+  local buf = Memento.get_existing_buffer()
+  if buf and a.nvim_buf_is_valid(buf) and a.nvim_buf_get_option(buf, 'modified') then
+    Memento.save_to_file(buf)
   end
 end
 
@@ -131,6 +153,9 @@ function Memento.create_window()
     a.nvim_win_set_option(win, key, value)
   end
 
+  -- Apply background highlight to the Memento window
+  vim.api.nvim_win_set_option(win, 'winhighlight', 'Normal:' .. Memento.View.background_highlight)
+
   -- Automatically switch focus to the new window
   a.nvim_set_current_win(win)
 
@@ -153,35 +178,39 @@ function Memento.close()
   local win_id = Memento.is_win_open()
   if win_id then
     a.nvim_win_close(win_id, true) -- Close the existing window
-    -- Do not delete the buffer here
+  else
+    print("Memento window is not open.")
   end
 end
 
 -- Toggle the Memento window.
 function Memento.toggle()
   if Memento.is_win_open() then
-    Memento.close()         -- Close the window and buffer if it's open
+    Memento.close()         -- Close the window if it's open
   else
     Memento.create_window() -- Create a new window
   end
 end
 
--- Save the Memento buffer when Neovim exits
-function Memento.save_on_exit()
-    local buf = Memento.get_existing_buffer()
-    if buf and a.nvim_buf_is_valid(buf) and a.nvim_buf_get_option(buf, 'modified') then
-        Memento.save_to_file(buf)
-    end
+-- Open the Memento window if it's not already open.
+function Memento.open()
+  if not Memento.is_win_open() then
+    Memento.create_window()
+  else
+    print("Memento window is already open.")
+  end
 end
 
--- Get the Memento buffer if it exists
-function Memento.get_existing_buffer()
-    for _, buf in ipairs(a.nvim_list_bufs()) do
-        if a.nvim_buf_is_valid(buf) and vim.bo[buf].filetype == "Memento" then
-            return buf -- Return the existing buffer if it exists
-        end
-    end
-    return nil
+-- Display the status of the Memento buffer.
+function Memento.status()
+  local buf = Memento.get_existing_buffer()
+  if buf and a.nvim_buf_is_valid(buf) then
+    local modified = a.nvim_buf_get_option(buf, 'modified')
+    local win_open = Memento.is_win_open() and "Yes" or "No"
+    print(string.format("Memento buffer is open: %s, modified: %s", win_open, modified and "Yes" or "No"))
+  else
+    print("Memento buffer does not exist.")
+  end
 end
 
 -- Update configuration values.
@@ -201,17 +230,21 @@ end
 function Memento.resize_window()
   local win = Memento.is_win_open()
   if win then
-    vim.cmd('resize ' .. Memento.View.height)         -- Resize height
-    vim.cmd('vertical resize ' .. Memento.View.width) -- Resize width
+    vim.api.nvim_win_set_width(win, Memento.View.width)
+    vim.api.nvim_win_set_height(win, Memento.View.height)
   end
 end
 
 -- Setup function for user-defined options.
 function Memento.setup(user_options)
   if user_options then
-    Memento.update_config(user_options) -- Use the update_config function to apply options
+    Memento.update_config(user_options)
   end
   vim.api.nvim_create_user_command('ToggleMemento', Memento.toggle, {})
+  vim.api.nvim_create_user_command('OpenMemento', Memento.open, {})
+  vim.api.nvim_create_user_command('CloseMemento', Memento.close, {})
+  vim.api.nvim_create_user_command('SaveMemento', function() Memento.save_to_file() end, {})
+  vim.api.nvim_create_user_command('MementoStatus', Memento.status, {})
 
   -- Set up an autocommand to save the Memento buffer before quitting
   vim.cmd('autocmd QuitPre * lua require("memento").save_on_exit()')

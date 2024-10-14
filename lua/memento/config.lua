@@ -1,10 +1,12 @@
+-- config.lua
 local M = {}
 
 M.default = {
-  width = 150,                                                -- Default width set to 150
-  height = 100,                                               -- Default height set to 100
-  side = "left",                                              -- Configurable side
-  filepath = vim.fn.expand("~") .. "/memento.nvim/global.md", -- Updated default file path
+  width = 150,
+  height = 100,
+  side = "left",
+  filepath = vim.fn.expand("~") .. "/memento.nvim/global.md",
+  background_highlight = "MementoBackground",   -- New option for background highlight
   winopts = {
     relativenumber = false,
     number = false,
@@ -25,7 +27,7 @@ M.default = {
     { name = "modifiable", val = true },
     { name = "filetype",   val = "Memento" },
     { name = "bufhidden",  val = "hide" },
-    { name = "buflisted",  val = false }, -- Prevent buffer from being listed
+    { name = "buflisted",  val = false },
   },
 }
 
