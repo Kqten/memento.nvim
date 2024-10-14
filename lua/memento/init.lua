@@ -110,8 +110,10 @@ function Memento.create_window()
   vim.cmd('resize ' .. height)
   vim.cmd('vertical resize ' .. width)
 
-  -- Set the buffer for the window
+  -- Get the current window (the new split)
   local win = a.nvim_get_current_win()
+
+  -- Set the buffer for the window
   a.nvim_win_set_buf(win, buf)
 
   -- Set window options for the newly created window
@@ -120,8 +122,12 @@ function Memento.create_window()
   end
 
   -- Automatically switch focus to the new window
-  -- Ensure this is after all window commands
   a.nvim_set_current_win(win)
+
+  -- Set syntax highlighting to markdown in the Memento window
+  vim.api.nvim_win_call(win, function()
+    vim.cmd('setlocal syntax=markdown')
+  end)
 
   -- Set some initial content if the buffer is empty
   if a.nvim_buf_line_count(buf) == 0 then
@@ -181,4 +187,3 @@ function Memento.setup(user_options)
 end
 
 return Memento
-
