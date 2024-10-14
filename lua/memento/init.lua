@@ -5,10 +5,38 @@ local Memento = {}
 
 Memento.View = MementoConfig.default
 
--- Define the default highlight group for Memento background
-vim.cmd([[
-  highlight default MementoBackground guibg=#1e1e1e
-]])
+
+-- Function to blend two colors without using 'bit32'
+local function blend_colors(fg, bg, alpha)
+  -- fg and bg are numbers representing colors in RGB
+  -- alpha is the opacity of fg over bg (0 = bg, 1 = fg)
+
+  -- Function to extract RGB components from a color
+  local function to_rgb(color)
+    local r = math.floor(color / 2 ^ 16) % 256
+    local g = math.floor(color / 2 ^ 8) % 256
+    local b = color % 256
+    return { r = r, g = g, b = b }
+  end
+
+  -- Function to blend individual color components
+  local function blend_component(fg_c, bg_c, alpha)
+    return math.floor((alpha * fg_c + (1 - alpha) * bg_c) + 0.5)
+  end
+
+  local fg_rgb = to_rgb(fg)
+  local bg_rgb = to_rgb(bg)
+
+  local blended_rgb = {
+    r = blend_component(fg_rgb.r, bg_rgb.r, alpha),
+    g = blend_component(fg_rgb.g, bg_rgb.g, alpha),
+    b = blend_component(fg_rgb.b, bg_rgb.b, alpha),
+  }
+
+  -- Combine RGB components back into a single color value
+  return blended_rgb.r * 2 ^ 16 + blended_rgb.g * 2 ^ 8 + blended_rgb.b
+end
+
 
 -- Check if the Memento window is open.
 function Memento.is_win_open()
@@ -144,6 +172,13 @@ function Memento.create_window()
 
   -- Get the current window (the new split)
   local win = a.nvim_get_current_win()
+  print("Memento: Current window ID is", win)
+
+  -- Check if win is a valid window ID
+  if not win or type(win) ~= 'number' or not a.nvim_win_is_valid(win) then
+    error("Memento: Invalid window ID. Cannot proceed.")
+    return
+  end
 
   -- Set the buffer for the window
   a.nvim_win_set_buf(win, buf)
@@ -154,7 +189,20 @@ function Memento.create_window()
   end
 
   -- Apply background highlight to the Memento window
-  vim.api.nvim_win_set_option(win, 'winhighlight', 'Normal:' .. Memento.View.background_highlight)
+  if Memento.View.background_darker then
+    -- Get the current 'Normal' highlight group background color
+    local normal_hl = vim.api.nvim_get_hl_by_name('Normal', true)
+    local normal_bg = normal_hl.background or 0x000000
+
+    -- Blend black over the current background with 20% opacity
+    local blended_bg = blend_colors(0x000000, normal_bg, 0.2)
+
+    -- Define a new highlight group for the Memento window
+    vim.api.nvim_set_hl(0, 'MementoDarkerBackground', { background = blended_bg })
+
+    -- Apply the new highlight group to the Memento window
+    vim.api.nvim_win_set_option(win, 'winhighlight', 'Normal:MementoDarkerBackground')
+  end
 
   -- Automatically switch focus to the new window
   a.nvim_set_current_win(win)

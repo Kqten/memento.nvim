@@ -7,6 +7,7 @@ M.default = {
   side = "left",
   filepath = vim.fn.expand("~") .. "/memento.nvim/global.md",
   background_highlight = "MementoBackground",   -- New option for background highlight
+  background_darker = false,
   winopts = {
     relativenumber = false,
     number = false,
