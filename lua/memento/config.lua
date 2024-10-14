@@ -29,6 +29,7 @@ M.default = {
     { name = "filetype",   val = "Memento" },
     { name = "bufhidden",  val = "hide" },
     { name = "buflisted",  val = false },
+    { name = "syntax",     val = "on" },
   },
 }
 

@@ -36,12 +36,27 @@ local function blend_colors(fg, bg, alpha)
   -- Combine RGB components back into a single color value
   return blended_rgb.r * 2 ^ 16 + blended_rgb.g * 2 ^ 8 + blended_rgb.b
 end
+-- init.lua
+local a = vim.api
+local MementoConfig = require('memento.config')
+
+local Memento = {}
+
+Memento.View = MementoConfig.default
+
+-- Variable to store the previous window ID
+Memento.previous_win_id = nil
+
+-- Function to blend two colors without using 'bit32'
+local function blend_colors(fg, bg, alpha)
+  -- ... (existing blend_colors function code)
+end
 
 -- Check if the Memento window is open.
 function Memento.is_win_open()
   for _, win in ipairs(a.nvim_list_wins()) do
     local buf = a.nvim_win_get_buf(win)
-    if a.nvim_buf_is_valid(buf) and vim.bo[buf].filetype == "Memento" then
+    if a.nvim_buf_is_valid(buf) and vim.b[buf].is_memento_buffer then
       return win       -- Return the window ID if found
     end
   end
@@ -51,7 +66,7 @@ end
 -- Get the Memento buffer if it exists
 function Memento.get_existing_buffer()
   for _, buf in ipairs(a.nvim_list_bufs()) do
-    if a.nvim_buf_is_valid(buf) and vim.bo[buf].filetype == "Memento" then
+    if a.nvim_buf_is_valid(buf) and vim.b[buf].is_memento_buffer then
       return buf       -- Return the existing buffer if it exists
     end
   end
@@ -69,7 +84,7 @@ function Memento.get_or_create_buffer()
 
   -- Check if a buffer with this name already exists
   local existing_bufnr = vim.fn.bufnr(filepath)
-  if existing_bufnr ~= -1 and vim.api.nvim_buf_is_valid(existing_bufnr) then
+  if existing_bufnr ~= -1 and a.nvim_buf_is_valid(existing_bufnr) then
     -- Buffer already exists, use it
     buf = existing_bufnr
   else
@@ -85,8 +100,13 @@ function Memento.get_or_create_buffer()
     end)
   end
 
+  -- Mark the buffer as the Memento buffer
+  vim.b[buf].is_memento_buffer = true
+
+  -- Set the filetype to "markdown" for syntax highlighting
+  a.nvim_buf_set_option(buf, 'filetype', 'markdown')
+
   -- Set buffer-local options
-  a.nvim_buf_set_option(buf, 'filetype', 'Memento')
   a.nvim_buf_set_option(buf, 'buftype', '')   -- Normal buffer
   a.nvim_buf_set_option(buf, 'buflisted', false)
   a.nvim_buf_set_option(buf, 'swapfile', false)
@@ -124,13 +144,20 @@ end
 -- Create the Memento window.
 function Memento.create_window()
   local width = Memento.View.width
-  local height = Memento.View.height
 
   Memento.ensure_directory()                   -- Ensure the directory exists
   local buf = Memento.get_or_create_buffer()   -- Get or create the Memento buffer
 
   -- Save the current window to return focus to it later
   local prev_win = a.nvim_get_current_win()
+
+  -- Check if the window is already open
+  local existing_win = Memento.is_win_open()
+  if existing_win then
+    -- Memento window already exists, focus it
+    a.nvim_set_current_win(existing_win)
+    return
+  end
 
   -- Create a vertical split based on the specified side
   if Memento.View.side == "left" then
@@ -183,9 +210,6 @@ function Memento.create_window()
     a.nvim_win_set_option(win, 'winhighlight', 'Normal:MementoDarkerBackground')
   end
 
-  -- Set syntax highlighting to markdown in the Memento buffer
-  a.nvim_buf_set_option(buf, 'syntax', 'markdown')
-
   -- Set buffer-local options from configuration
   for _, opt in ipairs(Memento.View.bufopts) do
     a.nvim_buf_set_option(buf, opt.name, opt.val)
@@ -235,13 +259,37 @@ function Memento.open()
   end
 end
 
--- Focus the Memento window.
+-- Toggle focus between the Memento window and the previous window.
 function Memento.focus()
-  local win_id = Memento.is_win_open()
-  if win_id then
-    a.nvim_set_current_win(win_id)     -- Focus the Memento window
+  local memento_win_id = Memento.is_win_open()
+  if not memento_win_id then
+    -- Memento window is not open; create it and focus it
+    Memento.create_window()
+    -- No previous window to remember in this case
+    return
+  end
+
+  local current_win_id = a.nvim_get_current_win()
+
+  if current_win_id == memento_win_id then
+    -- Memento window is currently focused
+    if Memento.previous_win_id and a.nvim_win_is_valid(Memento.previous_win_id) then
+      -- Switch back to the previous window
+      a.nvim_set_current_win(Memento.previous_win_id)
+      Memento.previous_win_id = nil       -- Clear the previous window ID
+    else
+      -- No valid previous window; focus the first non-Memento window
+      for _, win in ipairs(a.nvim_list_wins()) do
+        if win ~= memento_win_id then
+          a.nvim_set_current_win(win)
+          break
+        end
+      end
+    end
   else
-    Memento.create_window()            -- Open and focus the Memento window if it's not open
+    -- Memento window is not focused; focus it
+    Memento.previous_win_id = current_win_id     -- Remember the current window
+    a.nvim_set_current_win(memento_win_id)
   end
 end
 
@@ -287,7 +335,7 @@ function Memento.setup(user_options)
   vim.api.nvim_create_user_command('MementoToggle', Memento.toggle, {})
   vim.api.nvim_create_user_command('MementoOpen', Memento.open, {})
   vim.api.nvim_create_user_command('MementoClose', Memento.close, {})
-  vim.api.nvim_create_user_command('MementoSave', function() vim.cmd('write') end, {})
+  vim.api.nvim_create_user_command('MementoSave', 'write', {})
   vim.api.nvim_create_user_command('MementoStatus', Memento.status, {})
   vim.api.nvim_create_user_command('MementoFocus', Memento.focus, {})
 
@@ -296,4 +344,3 @@ function Memento.setup(user_options)
 end
 
 return Memento
-
