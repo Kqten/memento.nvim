@@ -43,7 +43,7 @@ end
 function Memento.load_content(buf)
     local filepath = Memento.View.filepath
     local lines = {}
-    
+
     -- Try to read the content from the file
     local file = io.open(filepath, "r")
     if file then
@@ -52,9 +52,37 @@ function Memento.load_content(buf)
         end
         file:close()
     end
-    
+
     -- Set the lines in the buffer
     a.nvim_buf_set_lines(buf, 0, -1, false, lines)
+end
+
+-- Ensure the directory for the filepath exists.
+function Memento.ensure_directory_exists(filepath)
+    local dir = filepath:match("(.*/)")
+    if dir then
+        -- Use os.execute to create the directory if it doesn't exist
+        os.execute("mkdir -p " .. dir)  -- Create the directory
+    end
+end
+
+-- Save the content of the Memento buffer to the specified file.
+function Memento.save_content(buf)
+    local filepath = Memento.View.filepath
+    local lines = a.nvim_buf_get_lines(buf, 0, -1, false)
+
+    Memento.ensure_directory_exists(filepath)  -- Ensure the directory exists
+
+    -- Try to write the content to the file
+    local file = io.open(filepath, "w")
+    if file then
+        for _, line in ipairs(lines) do
+            file:write(line .. "\n")
+        end
+        file:close()
+    else
+        print("Error: Unable to open file for writing: " .. filepath)
+    end
 end
 
 -- Create the Memento window.
@@ -96,6 +124,7 @@ function Memento.close()
     local win_id = Memento.is_win_open()
     if win_id then
         local buf_id = a.nvim_win_get_buf(win_id)
+        Memento.save_content(buf_id)  -- Save the content before closing
         a.nvim_win_close(win_id, true)  -- Close the existing window
         pcall(a.nvim_buf_delete, buf_id, {force = true})  -- Delete the associated buffer
     end
