@@ -1,72 +1,142 @@
+local a = vim.api
+local MementoConfig = require('memento.config')  -- Require the config file
+
 local Memento = {}
-Memento.options = {
-    bufnr = nil,
-    tabpages = {},
-    width = 30,
-    side = "left",
-    winopts = {
-        relativenumber = false,
-        number = false,
-        list = false,
-        winfixwidth = true,
-        winfixheight = true,
-        foldenable = false,
-        spell = false,
-        signcolumn = "yes",
-        foldmethod = "manual",
-        foldcolumn = "0",
-        cursorcolumn = false,
-        colorcolumn = "0",
-    },
-    bufopts = {
-        { name = "swapfile", val = false },
-        { name = "buftype", val = "nofile" },
-        { name = "modifiable", val = false },
-        { name = "filetype", val = "SidebarNvim" },
-        { name = "bufhidden", val = "hide" },
-    },
-}
 
--- Function to create the notepad window
-function Memento.create_window()
-    local width = Memento.options.width
-    local height = 20
+Memento.View = MementoConfig.default  -- Use the default config
 
-    -- Create a new split window on the left
-    vim.cmd('vsplit')
-    vim.cmd('resize ' .. height)
+-- Check if the Memento window is open.
+function Memento.is_win_open()
+    for _, win in ipairs(a.nvim_list_wins()) do
+        local buf = a.nvim_win_get_buf(win)
+        if vim.bo[buf].filetype == "Memento" then
+            return win  -- Return the window ID if found
+        end
+    end
+    return nil  -- Return nil if not found
+end
+
+-- Get or create a new buffer for the Memento window.
+function Memento.get_or_create_buffer()
+    for _, buf in ipairs(a.nvim_list_bufs()) do
+        if a.nvim_buf_is_valid(buf) and vim.bo[buf].filetype == "Memento" then
+            return buf  -- Return the existing buffer if it exists
+        end
+    end
+
+    -- Create a new buffer if none exists
+    local buf = a.nvim_create_buf(false, true)  -- Create a non-listed buffer
+    a.nvim_buf_set_name(buf, "Memento")
     
-    -- Set window options
-    for key, value in pairs(Memento.options.winopts) do
-        vim.wo[key] = value
+    -- Set buffer-local options
+    for _, opt in ipairs(Memento.View.bufopts) do
+        a.nvim_buf_set_option(buf, opt.name, opt.val)
     end
+    
+    -- Set the filetype for the buffer
+    a.nvim_buf_set_option(buf, 'filetype', 'Memento')
 
-    -- Set buffer options
-    vim.api.nvim_buf_set_name(0, "Memento")
-    for _, opt in ipairs(Memento.options.bufopts) do
-        vim.api.nvim_buf_set_option(0, opt.name, opt.val)
-    end
-
-    -- Optionally set some initial content
-    vim.api.nvim_buf_set_lines(0, 0, -1, false, {"# Your notes go here..."})
+    return buf
 end
 
--- Command to toggle the notepad window
-function Memento.toggle()
-    if vim.fn.bufexists('Memento') == 1 then
-        vim.cmd('b Memento')
-        vim.cmd('wincmd p')  -- Go back to the previous window
+-- Load content from the specified file into the Memento buffer.
+function Memento.load_content(buf)
+    local filepath = Memento.View.filepath
+    local lines = {}
+    
+    -- Try to read the content from the file
+    local file = io.open(filepath, "r")
+    if file then
+        for line in file:lines() do
+            table.insert(lines, line)
+        end
+        file:close()
+    end
+    
+    -- Set the lines in the buffer
+    a.nvim_buf_set_lines(buf, 0, -1, false, lines)
+end
+
+-- Create the Memento window.
+function Memento.create_window()
+    local width = Memento.View.width
+    local height = Memento.View.height
+
+    local buf = Memento.get_or_create_buffer()  -- Get or create the Memento buffer
+
+    -- Load content from the file into the buffer
+    Memento.load_content(buf)
+
+    -- Create a vertical split based on the specified side
+    if Memento.View.side == "left" then
+        vim.cmd('vsplit')
     else
-        Memento.create_window()
+        vim.cmd('vsplit')
+        vim.cmd('wincmd r') -- Move focus to the right side
+    end
+    vim.cmd('resize ' .. height)
+
+    -- Set window options for the newly created window
+    local win = a.nvim_get_current_win()
+    for key, value in pairs(Memento.View.winopts) do
+        a.nvim_win_set_option(win, key, value)
+    end
+
+    -- Set the buffer for the window
+    a.nvim_win_set_buf(win, buf)
+
+    -- Set some initial content if the buffer is empty
+    if a.nvim_buf_line_count(buf) == 0 then
+        a.nvim_buf_set_lines(buf, 0, -1, false, {"# Your notes go here..."})
     end
 end
 
--- Create the user command and setup options
-function Memento.setup(user_options)
+-- Close the Memento window and delete the buffer.
+function Memento.close()
+    local win_id = Memento.is_win_open()
+    if win_id then
+        local buf_id = a.nvim_win_get_buf(win_id)
+        a.nvim_win_close(win_id, true)  -- Close the existing window
+        pcall(a.nvim_buf_delete, buf_id, {force = true})  -- Delete the associated buffer
+    end
+end
+
+-- Toggle the Memento window.
+function Memento.toggle()
+    if Memento.is_win_open() then
+        Memento.close()  -- Close the window and buffer if it's open
+    else
+        Memento.create_window()  -- Create a new window
+        vim.cmd('wincmd l')  -- Move focus to the new window
+    end
+end
+
+-- Update configuration values.
+function Memento.update_config(user_options)
     if user_options then
         for key, value in pairs(user_options) do
-            Memento.options[key] = value
+            Memento.View[key] = value
         end
+        -- Resize the window if it's open to reflect new values
+        if Memento.is_win_open() then
+            Memento.resize_window()
+        end
+    end
+end
+
+-- Resize the Memento window to the configured width and height.
+function Memento.resize_window()
+    local win = Memento.is_win_open()
+    if win then
+        vim.cmd('resize ' .. Memento.View.height)  -- Resize height
+        vim.cmd('vertical resize ' .. Memento.View.width)  -- Resize width
+    end
+end
+
+-- Setup function for user-defined options.
+function Memento.setup(user_options)
+    if user_options then
+        Memento.update_config(user_options)  -- Use the update_config function to apply options
     end
     vim.api.nvim_create_user_command('ToggleMemento', Memento.toggle, {})
 end
