@@ -36,38 +36,23 @@ local function blend_colors(fg, bg, alpha)
   -- Combine RGB components back into a single color value
   return blended_rgb.r * 2 ^ 16 + blended_rgb.g * 2 ^ 8 + blended_rgb.b
 end
--- init.lua
-local a = vim.api
-local MementoConfig = require('memento.config')
-
-local Memento = {}
-
-Memento.View = MementoConfig.default
-
--- Variable to store the previous window ID
-Memento.previous_win_id = nil
-
--- Function to blend two colors without using 'bit32'
-local function blend_colors(fg, bg, alpha)
-  -- ... (existing blend_colors function code)
-end
 
 -- Check if the Memento window is open.
 function Memento.is_win_open()
   for _, win in ipairs(a.nvim_list_wins()) do
     local buf = a.nvim_win_get_buf(win)
     if a.nvim_buf_is_valid(buf) and vim.b[buf].is_memento_buffer then
-      return win       -- Return the window ID if found
+      return win -- Return the window ID if found
     end
   end
-  return nil   -- Return nil if not found
+  return nil -- Return nil if not found
 end
 
 -- Get the Memento buffer if it exists
 function Memento.get_existing_buffer()
   for _, buf in ipairs(a.nvim_list_bufs()) do
     if a.nvim_buf_is_valid(buf) and vim.b[buf].is_memento_buffer then
-      return buf       -- Return the existing buffer if it exists
+      return buf -- Return the existing buffer if it exists
     end
   end
   return nil
@@ -89,7 +74,7 @@ function Memento.get_or_create_buffer()
     buf = existing_bufnr
   else
     -- Create a new buffer without changing the current window
-    buf = a.nvim_create_buf(false, false)     -- Create a listed buffer
+    buf = a.nvim_create_buf(false, false) -- Create a listed buffer
 
     -- Set buffer name to the file path to associate it with the file
     a.nvim_buf_set_name(buf, filepath)
@@ -103,20 +88,10 @@ function Memento.get_or_create_buffer()
   -- Mark the buffer as the Memento buffer
   vim.b[buf].is_memento_buffer = true
 
-  -- Set the filetype to "markdown" for syntax highlighting
-  a.nvim_buf_set_option(buf, 'filetype', 'markdown')
-
-  -- Set buffer-local options
-  a.nvim_buf_set_option(buf, 'buftype', '')   -- Normal buffer
-  a.nvim_buf_set_option(buf, 'buflisted', false)
-  a.nvim_buf_set_option(buf, 'swapfile', false)
-  a.nvim_buf_set_option(buf, 'bufhidden', 'hide')
-  a.nvim_buf_set_option(buf, 'modifiable', true)
-  a.nvim_buf_set_option(buf, 'readonly', false)
-
-  -- Set buffer-local options from configuration
-  for _, opt in ipairs(Memento.View.bufopts) do
-    a.nvim_buf_set_option(buf, opt.name, opt.val)
+  -- Set buffer options from configuration
+  local bufopts = Memento.View.bufopts or {}
+  for opt, val in pairs(bufopts) do
+    a.nvim_buf_set_option(buf, opt, val)
   end
 
   return buf
@@ -127,7 +102,7 @@ function Memento.ensure_directory()
   local filepath = Memento.View.filepath
   local dir = filepath:match("(.*/)")
   if dir and vim.fn.isdirectory(dir) == 0 then
-    vim.fn.mkdir(dir, "p")     -- Create the directory if it doesn't exist
+    vim.fn.mkdir(dir, "p") -- Create the directory if it doesn't exist
   end
 end
 
@@ -145,25 +120,25 @@ end
 function Memento.create_window()
   local width = Memento.View.width
 
-  Memento.ensure_directory()                   -- Ensure the directory exists
-  local buf = Memento.get_or_create_buffer()   -- Get or create the Memento buffer
-
-  -- Save the current window to return focus to it later
-  local prev_win = a.nvim_get_current_win()
+  Memento.ensure_directory()                 -- Ensure the directory exists
+  local buf = Memento.get_or_create_buffer() -- Get or create the Memento buffer
 
   -- Check if the window is already open
   local existing_win = Memento.is_win_open()
-  if existing_win then
+  if existing_win and a.nvim_win_is_valid(existing_win) then
     -- Memento window already exists, focus it
     a.nvim_set_current_win(existing_win)
     return
   end
 
+  -- Save the current window to return focus to it later
+  local prev_win = a.nvim_get_current_win()
+
   -- Create a vertical split based on the specified side
   if Memento.View.side == "left" then
-    vim.cmd('topleft vsplit')      -- Open the split on the left
+    vim.cmd('topleft vsplit')  -- Open the split on the left
   else
-    vim.cmd('botright vsplit')     -- Open the split on the right
+    vim.cmd('botright vsplit') -- Open the split on the right
   end
 
   -- Resize the window's width
@@ -181,21 +156,11 @@ function Memento.create_window()
   -- Set the buffer for the window
   a.nvim_win_set_buf(win, buf)
 
-  -- Set window options for the newly created window
-  a.nvim_win_set_option(win, 'winfixwidth', true)
-  a.nvim_win_set_option(win, 'winfixheight', false)
-  a.nvim_win_set_option(win, 'number', false)
-  a.nvim_win_set_option(win, 'relativenumber', false)
-  a.nvim_win_set_option(win, 'cursorline', false)
-  a.nvim_win_set_option(win, 'cursorcolumn', false)
-  a.nvim_win_set_option(win, 'signcolumn', 'no')
-  a.nvim_win_set_option(win, 'foldcolumn', '0')
-  a.nvim_win_set_option(win, 'wrap', true)
-  a.nvim_win_set_option(win, 'linebreak', true)
-  a.nvim_win_set_option(win, 'spell', true)
-
-  -- Use a custom 'winbar' to discourage Neovim from using this window for other buffers
-  a.nvim_win_set_option(win, 'winbar', 'Memento Notepad')
+  -- Set window options from configuration
+  local winopts = Memento.View.winopts or {}
+  for opt, val in pairs(winopts) do
+    a.nvim_win_set_option(win, opt, val)
+  end
 
   -- Apply background highlight to the Memento window
   if Memento.View.background_darker then
@@ -210,13 +175,11 @@ function Memento.create_window()
     a.nvim_win_set_option(win, 'winhighlight', 'Normal:MementoDarkerBackground')
   end
 
-  -- Set buffer-local options from configuration
-  for _, opt in ipairs(Memento.View.bufopts) do
-    a.nvim_buf_set_option(buf, opt.name, opt.val)
-  end
+  -- Automatically focus the Memento window when created
+  a.nvim_set_current_win(win)
 
-  -- Return focus to the previous window
-  if a.nvim_win_is_valid(prev_win) then
+  -- Return focus to the previous window if autofocus is disabled
+  if not Memento.View.autofocus and a.nvim_win_is_valid(prev_win) then
     a.nvim_set_current_win(prev_win)
   end
 end
@@ -233,7 +196,7 @@ function Memento.close()
     else
       -- Switch to an empty buffer instead of closing the window
       vim.api.nvim_set_current_win(win_id)
-      vim.cmd('enew')       -- Open a new empty buffer
+      vim.cmd('enew') -- Open a new empty buffer
       print("Cannot close the Memento window because it is the last window open.")
     end
   else
@@ -244,9 +207,9 @@ end
 -- Toggle the Memento window.
 function Memento.toggle()
   if Memento.is_win_open() then
-    Memento.close()             -- Close the window if it's open
+    Memento.close()         -- Close the window if it's open
   else
-    Memento.create_window()     -- Create a new window
+    Memento.create_window() -- Create a new window
   end
 end
 
@@ -276,7 +239,7 @@ function Memento.focus()
     if Memento.previous_win_id and a.nvim_win_is_valid(Memento.previous_win_id) then
       -- Switch back to the previous window
       a.nvim_set_current_win(Memento.previous_win_id)
-      Memento.previous_win_id = nil       -- Clear the previous window ID
+      Memento.previous_win_id = nil -- Clear the previous window ID
     else
       -- No valid previous window; focus the first non-Memento window
       for _, win in ipairs(a.nvim_list_wins()) do
@@ -288,7 +251,7 @@ function Memento.focus()
     end
   else
     -- Memento window is not focused; focus it
-    Memento.previous_win_id = current_win_id     -- Remember the current window
+    Memento.previous_win_id = current_win_id -- Remember the current window
     a.nvim_set_current_win(memento_win_id)
   end
 end
@@ -309,7 +272,14 @@ end
 function Memento.update_config(user_options)
   if user_options then
     for key, value in pairs(user_options) do
-      Memento.View[key] = value
+      if key == 'winopts' or key == 'bufopts' then
+        -- Merge the tables
+        for opt, val in pairs(value) do
+          Memento.View[key][opt] = val
+        end
+      else
+        Memento.View[key] = value
+      end
     end
     -- Resize the window if it's open to reflect new values
     if Memento.is_win_open() then

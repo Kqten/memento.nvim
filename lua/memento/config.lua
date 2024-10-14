@@ -1,37 +1,36 @@
 -- config.lua
-local M = {}
+local MementoConfig = {}
 
-M.default = {
-  width = 150,
-  height = 100,
-  side = "left",
-  filepath = vim.fn.expand("~") .. "/memento.nvim/global.md",
-  background_highlight = "MementoBackground",   -- New option for background highlight
-  background_darker = false,
-  winopts = {
-    relativenumber = false,
-    number = false,
-    list = false,
-    winfixwidth = true,
-    winfixheight = true,
-    foldenable = false,
-    spell = false,
-    signcolumn = "yes",
-    foldmethod = "manual",
-    foldcolumn = "0",
-    cursorcolumn = false,
-    colorcolumn = "0",
-  },
-  bufopts = {
-    { name = "swapfile",   val = false },
-    { name = "buftype",    val = "" },
-    { name = "modifiable", val = true },
-    { name = "filetype",   val = "Memento" },
-    { name = "bufhidden",  val = "hide" },
-    { name = "buflisted",  val = false },
-    { name = "syntax",     val = "on" },
-  },
+MementoConfig.default = {
+    filepath = "~/.memento.nvim/global.md", -- Path to your notes file
+    width = 50,             -- Width of the Memento window
+    side = "left",          -- Side of the editor where the window will appear ('left' or 'right')
+    autofocus = true,       -- Whether the Memento window should autofocus when opened
+    background_darker = true, -- Whether to darken the background of the Memento window
+    winopts = {             -- Window options
+        winfixwidth = true,
+        winfixheight = false,
+        number = false,
+        relativenumber = false,
+        cursorline = false,
+        cursorcolumn = false,
+        signcolumn = 'no',
+        foldcolumn = '0',
+        wrap = true,
+        linebreak = true,
+        spell = true,
+        winbar = 'Memento Notepad', -- Custom winbar text
+    },
+    bufopts = {             -- Buffer options
+        buftype = '',
+        buflisted = false,
+        swapfile = false,
+        bufhidden = 'hide',
+        modifiable = true,
+        readonly = false,
+        filetype = 'markdown',
+    },
 }
 
-return M
+return MementoConfig
 
