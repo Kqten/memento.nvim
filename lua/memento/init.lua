@@ -287,16 +287,28 @@ function Memento.resize_window()
   end
 end
 
+-- Focus the Memento window.
+function Memento.focus()
+  local win_id = Memento.is_win_open()
+  if win_id then
+    vim.api.nvim_set_current_win(win_id)     -- Focus the Memento window
+  else
+    Memento.create_window()                  -- Open and focus the Memento window if it's not open
+  end
+end
+
 -- Setup function for user-defined options.
 function Memento.setup(user_options)
   if user_options then
     Memento.update_config(user_options)
   end
-  vim.api.nvim_create_user_command('ToggleMemento', Memento.toggle, {})
-  vim.api.nvim_create_user_command('OpenMemento', Memento.open, {})
-  vim.api.nvim_create_user_command('CloseMemento', Memento.close, {})
-  vim.api.nvim_create_user_command('SaveMemento', function() Memento.save_to_file() end, {})
+  -- Update command names to have 'Memento' as prefix
+  vim.api.nvim_create_user_command('MementoToggle', Memento.toggle, {})
+  vim.api.nvim_create_user_command('MementoOpen', Memento.open, {})
+  vim.api.nvim_create_user_command('MementoClose', Memento.close, {})
+  vim.api.nvim_create_user_command('MementoSave', function() Memento.save_to_file() end, {})
   vim.api.nvim_create_user_command('MementoStatus', Memento.status, {})
+  vim.api.nvim_create_user_command('MementoFocus', Memento.focus, {})   -- New command
 
   -- Set up an autocommand to save the Memento buffer before quitting
   vim.cmd('autocmd QuitPre * lua require("memento").save_on_exit()')
