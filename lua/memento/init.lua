@@ -134,7 +134,7 @@ function Memento.save_to_file(buf)
     local size = stat and stat.size or 0
 
     -- Display a message similar to Neovim's write message
-    print(string.format('"%s" %dL, %dB written', filepath, num_lines, size))
+    vim.api.nvim_echo({ { string.format('"%s" %dL, %dB written', filepath, num_lines, size) } }, false, {})
   else
     print("Failed to save to " .. filepath)
   end
@@ -143,7 +143,7 @@ end
 -- Save the Memento buffer when Neovim exits
 function Memento.save_on_exit()
   local buf = Memento.get_existing_buffer()
-  if buf and a.nvim_buf_is_valid(buf) and a.nvim_buf_get_option(buf, 'modified') then
+  if buf and vim.api.nvim_buf_is_valid(buf) and vim.api.nvim_buf_get_option(buf, 'modified') then
     Memento.save_to_file(buf)
   end
 end
@@ -171,21 +171,20 @@ function Memento.create_window()
   vim.cmd('vertical resize ' .. width)
 
   -- Get the current window (the new split)
-  local win = a.nvim_get_current_win()
-  print("Memento: Current window ID is", win)
+  local win = vim.api.nvim_get_current_win()
 
   -- Check if win is a valid window ID
-  if not win or type(win) ~= 'number' or not a.nvim_win_is_valid(win) then
+  if not win or type(win) ~= 'number' or not vim.api.nvim_win_is_valid(win) then
     error("Memento: Invalid window ID. Cannot proceed.")
     return
   end
 
   -- Set the buffer for the window
-  a.nvim_win_set_buf(win, buf)
+  vim.api.nvim_win_set_buf(win, buf)
 
   -- Set window options for the newly created window
   for key, value in pairs(Memento.View.winopts) do
-    a.nvim_win_set_option(win, key, value)
+    vim.api.nvim_win_set_option(win, key, value)
   end
 
   -- Apply background highlight to the Memento window
@@ -205,7 +204,7 @@ function Memento.create_window()
   end
 
   -- Automatically switch focus to the new window
-  a.nvim_set_current_win(win)
+  vim.api.nvim_set_current_win(win)
 
   -- Set syntax highlighting to markdown in the Memento window
   vim.api.nvim_win_call(win, function()
@@ -213,12 +212,17 @@ function Memento.create_window()
   end)
 
   -- Set some initial content if the buffer is empty
-  if a.nvim_buf_line_count(buf) == 0 then
-    a.nvim_buf_set_lines(buf, 0, -1, false, { "# Your notes go here..." })
+  if vim.api.nvim_buf_line_count(buf) == 0 then
+    vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "# Your notes go here..." })
   end
 
-  -- Set up an autocommand to save to the global.md file on write and when the window is closed
-  vim.cmd('autocmd BufWriteCmd,BufWinLeave <buffer> lua require("memento").save_to_file()')
+  -- Set up an autocommand group to save to the global.md file on write
+  vim.cmd([[
+    augroup MementoAutoCmd
+      autocmd! * <buffer>
+      autocmd BufWriteCmd <buffer> lua require("memento").save_to_file()
+    augroup END
+  ]])
 end
 
 -- Close the Memento window.
