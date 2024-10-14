@@ -141,74 +141,6 @@ function Memento.save_on_exit()
   end
 end
 
--- Create the Memento window.
-function Memento.create_window()
-  local width = Memento.View.width
-
-  Memento.ensure_directory()                 -- Ensure the directory exists
-  local buf = Memento.get_or_create_buffer() -- Get or create the Memento buffer
-
-  -- Check if the window is already open
-  local existing_win = Memento.is_win_open()
-  if existing_win and a.nvim_win_is_valid(existing_win) then
-    -- Memento window already exists, focus it
-    a.nvim_set_current_win(existing_win)
-    return
-  end
-
-  -- Save the current window to return focus to it later
-  local prev_win = a.nvim_get_current_win()
-
-  -- Create a vertical split based on the specified side
-  if Memento.View.side == "left" then
-    vim.cmd('topleft vsplit')  -- Open the split on the left
-  else
-    vim.cmd('botright vsplit') -- Open the split on the right
-  end
-
-  -- Resize the window's width
-  vim.cmd('vertical resize ' .. width)
-
-  -- Get the current window (the new split)
-  local win = a.nvim_get_current_win()
-
-  -- Check if win is a valid window ID
-  if not win or type(win) ~= 'number' or not a.nvim_win_is_valid(win) then
-    error("Memento: Invalid window ID. Cannot proceed.")
-    return
-  end
-
-  -- Set the buffer for the window
-  a.nvim_win_set_buf(win, buf)
-
-  -- Set window options from configuration
-  local winopts = Memento.View.winopts or {}
-  for opt, val in pairs(winopts) do
-    a.nvim_win_set_option(win, opt, val)
-  end
-
-  -- Apply background highlight to the Memento window
-  if Memento.View.background_darker then
-    -- Get the current 'Normal' highlight group background color
-    local normal_hl = vim.api.nvim_get_hl_by_name('Normal', true)
-    local normal_bg = normal_hl and normal_hl.background or 0x000000
-
-    local blended_bg = blend_colors(0x000000, normal_bg, 0.2)
-
-    vim.api.nvim_set_hl(0, 'MementoDarkerBackground', { bg = blended_bg })
-
-    a.nvim_win_set_option(win, 'winhighlight', 'Normal:MementoDarkerBackground')
-  end
-
-  -- Automatically focus the Memento window when created
-  a.nvim_set_current_win(win)
-
-  -- Return focus to the previous window if autofocus is disabled
-  if not Memento.View.autofocus and a.nvim_win_is_valid(prev_win) then
-    a.nvim_set_current_win(prev_win)
-  end
-end
-
 -- Close the Memento window.
 function Memento.close()
   local win_id = Memento.is_win_open()
@@ -296,6 +228,107 @@ vim.api.nvim_create_autocmd('BufWinEnter', {
       -- Close the Memento window if it's open
       if Memento.is_win_open() then
         Memento.close()
+      end
+    end
+  end,
+})
+
+-- Function to check if Neo-tree is open
+local function is_neotree_open()
+  for _, win in ipairs(vim.api.nvim_list_wins()) do
+    local buf = vim.api.nvim_win_get_buf(win)
+    if vim.api.nvim_buf_get_option(buf, 'filetype') == 'neo-tree' then
+      return true
+    end
+  end
+  return false
+end
+
+-- Function to close Neo-tree
+local function close_neotree()
+  if is_neotree_open() then
+    vim.cmd("Neotree close")
+  end
+end
+
+-- Create the Memento window.
+function Memento.create_window()
+  local width = Memento.View.width
+  close_neotree()
+
+  Memento.ensure_directory()                 -- Ensure the directory exists
+  local buf = Memento.get_or_create_buffer() -- Get or create the Memento buffer
+
+  -- Check if the window is already open
+  local existing_win = Memento.is_win_open()
+  if existing_win and a.nvim_win_is_valid(existing_win) then
+    -- Memento window already exists, focus it
+    a.nvim_set_current_win(existing_win)
+    return
+  end
+
+  -- Save the current window to return focus to it later
+  local prev_win = a.nvim_get_current_win()
+
+  -- Create a vertical split based on the specified side
+  if Memento.View.side == "left" then
+    vim.cmd('topleft vsplit')  -- Open the split on the left
+  else
+    vim.cmd('botright vsplit') -- Open the split on the right
+  end
+
+  -- Resize the window's width
+  vim.cmd('vertical resize ' .. width)
+
+  -- Get the current window (the new split)
+  local win = a.nvim_get_current_win()
+
+  -- Check if win is a valid window ID
+  if not win or type(win) ~= 'number' or not a.nvim_win_is_valid(win) then
+    error("Memento: Invalid window ID. Cannot proceed.")
+    return
+  end
+
+  -- Set the buffer for the window
+  a.nvim_win_set_buf(win, buf)
+
+  -- Set window options from configuration
+  local winopts = Memento.View.winopts or {}
+  for opt, val in pairs(winopts) do
+    a.nvim_win_set_option(win, opt, val)
+  end
+
+  -- Apply background highlight to the Memento window
+  if Memento.View.background_darker then
+    -- Get the current 'Normal' highlight group background color
+    local normal_hl = vim.api.nvim_get_hl_by_name('Normal', true)
+    local normal_bg = normal_hl and normal_hl.background or 0x000000
+
+    local blended_bg = blend_colors(0x000000, normal_bg, 0.2)
+
+    vim.api.nvim_set_hl(0, 'MementoDarkerBackground', { bg = blended_bg })
+
+    a.nvim_win_set_option(win, 'winhighlight', 'Normal:MementoDarkerBackground')
+  end
+
+  -- Automatically focus the Memento window when created
+  a.nvim_set_current_win(win)
+
+  -- Return focus to the previous window if autofocus is disabled
+  if not Memento.View.autofocus and a.nvim_win_is_valid(prev_win) then
+    a.nvim_set_current_win(prev_win)
+  end
+end
+
+-- Autocommand to listen for buffers opened by Neo-tree
+vim.api.nvim_create_autocmd('BufWinEnter', {
+  callback = function(args)
+    local buf = args.buf
+    if vim.api.nvim_buf_get_option(buf, 'filetype') == 'neo-tree' then
+      -- Neo-tree has opened a buffer
+      -- Close the Memento window if it's open
+      if require("memento").is_win_open() then
+        require("memento").close()
       end
     end
   end,
