@@ -10,23 +10,23 @@ function Memento.is_win_open()
   for _, win in ipairs(a.nvim_list_wins()) do
     local buf = a.nvim_win_get_buf(win)
     if vim.bo[buf].filetype == "Memento" then
-      return win       -- Return the window ID if found
+      return win -- Return the window ID if found
     end
   end
-  return nil   -- Return nil if not found
+  return nil -- Return nil if not found
 end
 
 -- Get or create a new buffer for the Memento window.
 function Memento.get_or_create_buffer()
   for _, buf in ipairs(a.nvim_list_bufs()) do
     if a.nvim_buf_is_valid(buf) and vim.bo[buf].filetype == "Memento" then
-      return buf       -- Return the existing buffer if it exists
+      return buf -- Return the existing buffer if it exists
     end
   end
 
   -- Create a new buffer if none exists
-  local buf = a.nvim_create_buf(false, true)        -- Create a non-listed buffer
-  a.nvim_buf_set_name(buf, Memento.View.filepath)   -- Set the buffer's name to the desired file path
+  local buf = a.nvim_create_buf(false, true)      -- Create a non-listed buffer
+  a.nvim_buf_set_name(buf, Memento.View.filepath) -- Set the buffer's name to the desired file path
 
   -- Set buffer-local options
   for _, opt in ipairs(Memento.View.bufopts) do
@@ -44,7 +44,7 @@ function Memento.ensure_directory()
   local filepath = Memento.View.filepath
   local dir = filepath:match("(.*/)")
   if dir and not vim.fn.isdirectory(dir) then
-    vim.fn.mkdir(dir, "p")     -- Create the directory if it doesn't exist
+    vim.fn.mkdir(dir, "p") -- Create the directory if it doesn't exist
   end
 end
 
@@ -68,8 +68,12 @@ end
 
 -- Save the content of the Memento buffer to the specified file.
 function Memento.save_to_file()
-  local buf = Memento.get_or_create_buffer()                  -- Get the buffer
+  local buf = Memento.get_or_create_buffer()   -- Get the buffer
   local filepath = Memento.View.filepath
+
+  -- Ensure the directory exists before saving
+  Memento.ensure_directory()
+
   local file = io.open(filepath, "w")                         -- Open the file for writing
   if file then
     local lines = a.nvim_buf_get_lines(buf, 0, -1, false)     -- Get lines from the buffer
@@ -77,6 +81,9 @@ function Memento.save_to_file()
       file:write(line .. "\n")                                -- Write each line to the file
     end
     file:close()
+
+    -- Mark the buffer as no longer modified
+    a.nvim_buf_set_option(buf, 'modified', false)
   else
     print("Failed to save to " .. filepath)
   end
@@ -87,8 +94,8 @@ function Memento.create_window()
   local width = Memento.View.width
   local height = Memento.View.height
 
-  Memento.ensure_directory()                   -- Ensure the directory exists
-  local buf = Memento.get_or_create_buffer()   -- Get or create the Memento buffer
+  Memento.ensure_directory()                 -- Ensure the directory exists
+  local buf = Memento.get_or_create_buffer() -- Get or create the Memento buffer
 
   -- Load content from the file into the buffer
   Memento.load_content(buf)
@@ -98,7 +105,7 @@ function Memento.create_window()
     vim.cmd('vsplit')
   else
     vim.cmd('vsplit')
-    vim.cmd('wincmd r')     -- Move focus to the right side
+    vim.cmd('wincmd r') -- Move focus to the right side
   end
   vim.cmd('resize ' .. height)
 
@@ -144,10 +151,10 @@ end
 -- Toggle the Memento window.
 function Memento.toggle()
   if Memento.is_win_open() then
-    Memento.close()             -- Close the window and buffer if it's open
+    Memento.close()         -- Close the window and buffer if it's open
   else
-    Memento.create_window()     -- Create a new window
-    vim.cmd('wincmd l')         -- Move focus to the new window
+    Memento.create_window() -- Create a new window
+    vim.cmd('wincmd l')     -- Move focus to the new window
   end
 end
 
@@ -168,15 +175,15 @@ end
 function Memento.resize_window()
   local win = Memento.is_win_open()
   if win then
-    vim.cmd('resize ' .. Memento.View.height)             -- Resize height
-    vim.cmd('vertical resize ' .. Memento.View.width)     -- Resize width
+    vim.cmd('resize ' .. Memento.View.height)         -- Resize height
+    vim.cmd('vertical resize ' .. Memento.View.width) -- Resize width
   end
 end
 
 -- Setup function for user-defined options.
 function Memento.setup(user_options)
   if user_options then
-    Memento.update_config(user_options)     -- Use the update_config function to apply options
+    Memento.update_config(user_options) -- Use the update_config function to apply options
   end
   vim.api.nvim_create_user_command('ToggleMemento', Memento.toggle, {})
 end
