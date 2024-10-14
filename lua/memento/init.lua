@@ -68,21 +68,22 @@ end
 
 -- Save the content of the Memento buffer to the specified file.
 function Memento.save_to_file()
-  local buf = Memento.get_or_create_buffer()   -- Get the buffer
+  local buf = Memento.get_or_create_buffer() -- Get the buffer
+
+  if not a.nvim_buf_is_valid(buf) then
+    print("Buffer is no longer valid")
+    return
+  end
+
   local filepath = Memento.View.filepath
-
-  -- Ensure the directory exists before saving
-  Memento.ensure_directory()
-
-  local file = io.open(filepath, "w")                         -- Open the file for writing
+  local file = io.open(filepath, "w")                     -- Open the file for writing
   if file then
-    local lines = a.nvim_buf_get_lines(buf, 0, -1, false)     -- Get lines from the buffer
+    local lines = a.nvim_buf_get_lines(buf, 0, -1, false) -- Get lines from the buffer
     for _, line in ipairs(lines) do
-      file:write(line .. "\n")                                -- Write each line to the file
+      file:write(line .. "\n")                            -- Write each line to the file
     end
     file:close()
-
-    -- Mark the buffer as no longer modified
+    -- Mark the buffer as not modified
     a.nvim_buf_set_option(buf, 'modified', false)
   else
     print("Failed to save to " .. filepath)
@@ -127,24 +128,15 @@ function Memento.create_window()
   end
 
   -- Set up an autocommand to save to the global.md file on write
-  vim.cmd('autocmd BufWriteCmd <buffer> lua require("memento").save_to_file()')
+  vim.cmd('autocmd BufWritePre,BufWinLeave <buffer> lua require("memento").save_to_file()')
 end
 
--- Close the Memento window and save the buffer if modified.
+-- Close the Memento window.
 function Memento.close()
   local win_id = Memento.is_win_open()
   if win_id then
-    local buf_id = a.nvim_win_get_buf(win_id)
-
-    -- Check if the buffer is modified
-    if a.nvim_buf_get_option(buf_id, 'modified') then
-      -- Save the buffer content before closing
-      Memento.save_to_file()
-    end
-
-    -- Close the window and delete the buffer
-    a.nvim_win_close(win_id, true)
-    pcall(a.nvim_buf_delete, buf_id, { force = true })
+    a.nvim_win_close(win_id, true)     -- Close the existing window
+    -- Do not delete the buffer here
   end
 end
 
