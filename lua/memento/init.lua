@@ -159,6 +159,9 @@ function Memento.create_window()
   -- Load content from the file into the buffer
   Memento.load_content(buf)
 
+  -- Save the current window to return focus to it later
+  local prev_win = vim.api.nvim_get_current_win()
+
   -- Create a vertical split based on the specified side
   if Memento.View.side == "left" then
     vim.cmd('topleft vsplit')  -- Open the split on the left
@@ -187,34 +190,52 @@ function Memento.create_window()
     vim.api.nvim_win_set_option(win, key, value)
   end
 
+  -- Additional window options to prevent buffer replacement
+  vim.api.nvim_win_set_option(win, 'winfixwidth', true)
+  vim.api.nvim_win_set_option(win, 'winfixheight', true)
+  vim.api.nvim_win_set_option(win, 'number', false)
+  vim.api.nvim_win_set_option(win, 'relativenumber', false)
+  vim.api.nvim_win_set_option(win, 'cursorline', false)
+  vim.api.nvim_win_set_option(win, 'cursorcolumn', false)
+
   -- Apply background highlight to the Memento window
   if Memento.View.background_darker then
-    -- Get the current 'Normal' highlight group background color
+    -- Existing code to apply background highlight
     local normal_hl = vim.api.nvim_get_hl_by_name('Normal', true)
     local normal_bg = normal_hl.background or 0x000000
 
-    -- Blend black over the current background with 20% opacity
     local blended_bg = blend_colors(0x000000, normal_bg, 0.2)
 
-    -- Define a new highlight group for the Memento window
     vim.api.nvim_set_hl(0, 'MementoDarkerBackground', { background = blended_bg })
 
-    -- Apply the new highlight group to the Memento window
     vim.api.nvim_win_set_option(win, 'winhighlight', 'Normal:MementoDarkerBackground')
   end
 
-  -- Automatically switch focus to the new window
-  vim.api.nvim_set_current_win(win)
+  -- Do not switch focus to the Memento window
+  -- Instead, return focus to the previous window
+  if vim.api.nvim_win_is_valid(prev_win) then
+    vim.api.nvim_set_current_win(prev_win)
+  end
 
   -- Set syntax highlighting to markdown in the Memento window
-  vim.api.nvim_win_call(win, function()
-    vim.cmd('setlocal syntax=markdown')
-  end)
+  vim.api.nvim_buf_set_option(buf, 'syntax', 'markdown')
 
   -- Set some initial content if the buffer is empty
   if vim.api.nvim_buf_line_count(buf) == 0 then
     vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "# Your notes go here..." })
   end
+
+  -- Set buffer-local options
+  for _, opt in ipairs(Memento.View.bufopts) do
+    vim.api.nvim_buf_set_option(buf, opt.name, opt.val)
+  end
+
+  -- Ensure the buffer is modifiable
+  vim.api.nvim_buf_set_option(buf, 'modifiable', true)
+
+  -- Set buffer options to prevent it from being listed or swapped
+  vim.api.nvim_buf_set_option(buf, 'buflisted', false)
+  vim.api.nvim_buf_set_option(buf, 'swapfile', false)
 
   -- Set up an autocommand group to save to the global.md file on write
   vim.cmd([[
@@ -229,7 +250,10 @@ end
 function Memento.close()
   local win_id = Memento.is_win_open()
   if win_id then
-    a.nvim_win_close(win_id, true) -- Close the existing window
+    -- Close the existing window
+    vim.api.nvim_win_close(win_id, true)
+    -- Clear the autocommand group associated with the Memento window
+    vim.cmd('augroup MementoEnforceBuffer | autocmd! | augroup END')
   else
     print("Memento window is not open.")
   end
@@ -291,9 +315,36 @@ end
 function Memento.focus()
   local win_id = Memento.is_win_open()
   if win_id then
-    vim.api.nvim_set_current_win(win_id)     -- Focus the Memento window
+    vim.api.nvim_set_current_win(win_id) -- Focus the Memento window
   else
-    Memento.create_window()                  -- Open and focus the Memento window if it's not open
+    Memento.create_window()              -- Open and focus the Memento window if it's not open
+  end
+end
+
+-- Enforce the Memento buffer in the Memento window
+function Memento.enforce_buffer(win_id, buf_id)
+  -- Check if the window is still valid
+  if not vim.api.nvim_win_is_valid(win_id) then
+    -- The window is no longer valid; do nothing
+    return
+  end
+
+  local current_win = vim.api.nvim_get_current_win()
+  local current_buf = vim.api.nvim_win_get_buf(win_id)
+
+  if current_buf ~= buf_id then
+    -- Switch focus to another window
+    for _, win in ipairs(vim.api.nvim_list_wins()) do
+      if win ~= win_id then
+        vim.api.nvim_set_current_win(win)
+        break
+      end
+    end
+
+    -- Revert the buffer in the Memento window back to the Memento buffer
+    if vim.api.nvim_win_is_valid(win_id) then
+      vim.api.nvim_win_set_buf(win_id, buf_id)
+    end
   end
 end
 
@@ -308,7 +359,7 @@ function Memento.setup(user_options)
   vim.api.nvim_create_user_command('MementoClose', Memento.close, {})
   vim.api.nvim_create_user_command('MementoSave', function() Memento.save_to_file() end, {})
   vim.api.nvim_create_user_command('MementoStatus', Memento.status, {})
-  vim.api.nvim_create_user_command('MementoFocus', Memento.focus, {})   -- New command
+  vim.api.nvim_create_user_command('MementoFocus', Memento.focus, {}) -- New command
 
   -- Set up an autocommand to save the Memento buffer before quitting
   vim.cmd('autocmd QuitPre * lua require("memento").save_on_exit()')
