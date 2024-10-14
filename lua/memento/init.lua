@@ -6,6 +6,14 @@ local Memento = {}
 
 Memento.View = MementoConfig.default
 
+-- Expand the default filepath from config.lua
+if Memento.View.filepath then
+  Memento.View.filepath = vim.fn.expand(Memento.View.filepath)
+else
+  -- If no filepath is provided, set a default and expand it
+  Memento.View.filepath = vim.fn.expand("~/.memento.nvim/global.md")
+end
+
 -- Function to blend two colors without using 'bit32'
 local function blend_colors(fg, bg, alpha)
   -- fg and bg are numbers representing colors in RGB
@@ -68,7 +76,7 @@ function Memento.get_or_create_buffer()
   local filepath = Memento.View.filepath
 
   -- Create a new buffer without changing the current window
-  buf = a.nvim_create_buf(false, false)   -- Create an unlisted buffer
+  buf = a.nvim_create_buf(false, false) -- Create an unlisted buffer
 
   -- Mark the buffer as the Memento buffer
   vim.b[buf].is_memento_buffer = true
@@ -294,6 +302,9 @@ function Memento.update_config(user_options)
         for opt, val in pairs(value) do
           Memento.View[key][opt] = val
         end
+      elseif key == 'filepath' then
+        -- Expand the filepath to handle '~' and environment variables
+        Memento.View.filepath = vim.fn.expand(value)
       else
         Memento.View[key] = value
       end
