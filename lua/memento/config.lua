@@ -21,7 +21,7 @@ M.default = {
     },
     bufopts = {
         { name = "swapfile", val = false },
-        { name = "buftype", val = "" },  -- Set to an empty string for regular file behavior
+        { name = "buftype", val = "acwrite" },  -- Set to an empty string for regular file behavior
         { name = "modifiable", val = true },  -- Allow modifications
         { name = "filetype", val = "Memento" },
         { name = "bufhidden", val = "hide" },
