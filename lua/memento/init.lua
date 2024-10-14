@@ -101,26 +101,26 @@ function Memento.create_window()
 
   -- Create a vertical split based on the specified side
   if Memento.View.side == "left" then
-    vim.cmd('vsplit')
+    vim.cmd('topleft vsplit')      -- Open the split on the left
   else
-    vim.cmd('vsplit')
-    vim.cmd('wincmd r')     -- Move focus to the right side
+    vim.cmd('botright vsplit')     -- Open the split on the right
   end
 
-  -- Resize the window's width
+  -- Resize the window's height and width
   vim.cmd('resize ' .. height)
   vim.cmd('vertical resize ' .. width)
 
-  -- Set window options for the newly created window
+  -- Set the buffer for the window
   local win = a.nvim_get_current_win()
+  a.nvim_win_set_buf(win, buf)
+
+  -- Set window options for the newly created window
   for key, value in pairs(Memento.View.winopts) do
     a.nvim_win_set_option(win, key, value)
   end
 
-  -- Set the buffer for the window
-  a.nvim_win_set_buf(win, buf)
-
   -- Automatically switch focus to the new window
+  -- Ensure this is after all window commands
   a.nvim_set_current_win(win)
 
   -- Set some initial content if the buffer is empty
@@ -147,7 +147,6 @@ function Memento.toggle()
     Memento.close()         -- Close the window and buffer if it's open
   else
     Memento.create_window() -- Create a new window
-    vim.cmd('wincmd l')     -- Move focus to the new window
   end
 end
 
