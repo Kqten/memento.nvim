@@ -93,17 +93,17 @@ function Memento.create_window()
   local width = Memento.View.width
   local height = Memento.View.height
 
-  Memento.ensure_directory()                   -- Ensure the directory exists
-  local buf = Memento.get_or_create_buffer()   -- Get or create the Memento buffer
+  Memento.ensure_directory()                 -- Ensure the directory exists
+  local buf = Memento.get_or_create_buffer() -- Get or create the Memento buffer
 
   -- Load content from the file into the buffer
   Memento.load_content(buf)
 
   -- Create a vertical split based on the specified side
   if Memento.View.side == "left" then
-    vim.cmd('topleft vsplit')      -- Open the split on the left
+    vim.cmd('topleft vsplit')  -- Open the split on the left
   else
-    vim.cmd('botright vsplit')     -- Open the split on the right
+    vim.cmd('botright vsplit') -- Open the split on the right
   end
 
   -- Resize the window's height and width
@@ -156,6 +156,14 @@ function Memento.toggle()
   end
 end
 
+-- Save the Memento buffer when Neovim exits
+function Memento.save_on_exit()
+    local buf = Memento.get_or_create_buffer()
+    if a.nvim_buf_is_valid(buf) and a.nvim_buf_get_option(buf, 'modified') then
+        Memento.save_to_file()
+    end
+end
+
 -- Update configuration values.
 function Memento.update_config(user_options)
   if user_options then
@@ -184,6 +192,9 @@ function Memento.setup(user_options)
     Memento.update_config(user_options) -- Use the update_config function to apply options
   end
   vim.api.nvim_create_user_command('ToggleMemento', Memento.toggle, {})
+
+  -- Set up an autocommand to save the Memento buffer when Neovim exits
+  vim.cmd('autocmd VimLeavePre * lua require("memento").save_on_exit()')
 end
 
 return Memento
