@@ -25,8 +25,8 @@ function Memento.get_or_create_buffer()
   end
 
   -- Create a new buffer if none exists
-  local buf = a.nvim_create_buf(false, true)      -- Create a non-listed buffer
-  a.nvim_buf_set_name(buf, "Memento") -- Set the buffer's name to the desired file path
+  local buf = a.nvim_create_buf(false, true) -- Create a non-listed buffer
+  a.nvim_buf_set_name(buf, "Memento")        -- Set the buffer's name to the desired file path
 
   -- Set buffer-local options
   for _, opt in ipairs(Memento.View.bufopts) do
@@ -68,34 +68,33 @@ end
 
 -- Save the content of the Memento buffer to the specified file.
 function Memento.save_to_file()
-    local buf = Memento.get_or_create_buffer()
-    if not a.nvim_buf_is_valid(buf) then
-        print("Buffer is no longer valid.")
-        return
+  local buf = Memento.get_or_create_buffer()
+  if not a.nvim_buf_is_valid(buf) then
+    print("Buffer is no longer valid.")
+    return
+  end
+  local filepath = Memento.View.filepath
+  local file = io.open(filepath, "w")
+  if file then
+    local lines = a.nvim_buf_get_lines(buf, 0, -1, false)
+    for _, line in ipairs(lines) do
+      file:write(line .. "\n")
     end
-    local filepath = Memento.View.filepath
-    local file = io.open(filepath, "w")
-    if file then
-        local lines = a.nvim_buf_get_lines(buf, 0, -1, false)
-        for _, line in ipairs(lines) do
-            file:write(line .. "\n")
-        end
-        file:close()
-        -- Mark the buffer as not modified
-        a.nvim_buf_set_option(buf, 'modified', false)
-    else
-        print("Failed to save to " .. filepath)
-    end
+    file:close()
+    -- Mark the buffer as not modified
+    a.nvim_buf_set_option(buf, 'modified', false)
+  else
+    print("Failed to save to " .. filepath)
+  end
 end
-
 
 -- Create the Memento window.
 function Memento.create_window()
   local width = Memento.View.width
   local height = Memento.View.height
 
-  Memento.ensure_directory()                 -- Ensure the directory exists
-  local buf = Memento.get_or_create_buffer() -- Get or create the Memento buffer
+  Memento.ensure_directory()                   -- Ensure the directory exists
+  local buf = Memento.get_or_create_buffer()   -- Get or create the Memento buffer
 
   -- Load content from the file into the buffer
   Memento.load_content(buf)
@@ -105,9 +104,12 @@ function Memento.create_window()
     vim.cmd('vsplit')
   else
     vim.cmd('vsplit')
-    vim.cmd('wincmd r') -- Move focus to the right side
+    vim.cmd('wincmd r')     -- Move focus to the right side
   end
+
+  -- Resize the window's width
   vim.cmd('resize ' .. height)
+  vim.cmd('vertical resize ' .. width)
 
   -- Set window options for the newly created window
   local win = a.nvim_get_current_win()
@@ -126,7 +128,7 @@ function Memento.create_window()
     a.nvim_buf_set_lines(buf, 0, -1, false, { "# Your notes go here..." })
   end
 
-  -- Set up an autocommand to save to the global.md file on write
+  -- Set up an autocommand to save to the global.md file on write and when the window is closed
   vim.cmd('autocmd BufWriteCmd,BufWinLeave <buffer> lua require("memento").save_to_file()')
 end
 
