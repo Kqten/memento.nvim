@@ -68,24 +68,34 @@ end
 
 -- Save the content of the Memento buffer to the specified file.
 function Memento.save_to_file(buf)
-    buf = buf or Memento.get_or_create_buffer()
-    if not a.nvim_buf_is_valid(buf) then
-        print("Buffer is no longer valid.")
-        return
+  buf = buf or Memento.get_or_create_buffer()
+  if not a.nvim_buf_is_valid(buf) then
+    print("Buffer is no longer valid.")
+    return
+  end
+  local filepath = Memento.View.filepath
+  local lines = a.nvim_buf_get_lines(buf, 0, -1, false)
+  
+  -- Write to the file
+  local file = io.open(filepath, "w")
+  if file then
+    for _, line in ipairs(lines) do
+      file:write(line .. "\n")
     end
-    local filepath = Memento.View.filepath
-    local file = io.open(filepath, "w")
-    if file then
-        local lines = a.nvim_buf_get_lines(buf, 0, -1, false)
-        for _, line in ipairs(lines) do
-            file:write(line .. "\n")
-        end
-        file:close()
-        -- Mark the buffer as not modified
-        a.nvim_buf_set_option(buf, 'modified', false)
-    else
-        print("Failed to save to " .. filepath)
-    end
+    file:close()
+    -- Mark the buffer as not modified
+    a.nvim_buf_set_option(buf, 'modified', false)
+    
+    -- Get the number of lines and file size
+    local num_lines = #lines
+    local stat = vim.loop.fs_stat(filepath)
+    local size = stat and stat.size or 0
+    
+    -- Display a message similar to Neovim's write message
+    print(string.format('"%s" %dL, %dB written', filepath, num_lines, size))
+  else
+    print("Failed to save to " .. filepath)
+  end
 end
 
 -- Create the Memento window.
