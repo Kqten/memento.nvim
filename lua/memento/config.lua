@@ -7,6 +7,7 @@ MementoConfig.default = {
     side = "left",          -- Side of the editor where the window will appear ('left' or 'right')
     autofocus = true,       -- Whether the Memento window should autofocus when opened
     background_darker = false, -- Whether to darken the background of the Memento window
+    auto_close_neotree = true, -- neotree has some weird behavior with memento
     winopts = {             -- Window options
         winfixwidth = true,
         winfixheight = false,
